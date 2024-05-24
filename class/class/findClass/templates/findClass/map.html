@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <title>Display a map on a webpage</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet'/>
+
+
     <style>
         body {
             margin: 0;
@@ -42,7 +44,12 @@
     });
 
     map.on('load', () => {
-        const geojson = {{ geojson|safe }};
+        const geojson = {
+        {
+            geojson | safe
+        }
+    }
+        ;
 
         map.addSource('places', {
             'type': 'geojson',
@@ -93,6 +100,10 @@
             popup.remove();
         });
     });
+
+    // Add zoom and rotation controls to the map.
+    map.addControl(new mapboxgl.NavigationControl());
+
 
 </script>
 </body>
