@@ -4,10 +4,12 @@
     <meta charset="utf-8">
     <title>Display a map on a webpage</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet'/>
-
-
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -26,10 +28,32 @@
             font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
         }
     </style>
+    {% load static %}
 </head>
 
 <body>
 <div id="map"></div>
+
+<!-- Bootstrap Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detailsModalLabel">Room Details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Room details will be injected here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
     mapboxgl.accessToken = 'pk.eyJ1Ijoic29sYWNvbGEiLCJhIjoiY2x3ajhkdTM5MDA1MTJpcDhscW9tNWdmOSJ9.0NoHkd4AGLDhM_2YKMC13w';
     const map = new mapboxgl.Map({
@@ -44,44 +68,63 @@
     });
 
     map.on('load', () => {
-        const geojson = {
-        {
-            geojson | safe
-        }
-    }
-        ;
+        // Add image icons to the map
+        map.loadImage("{% static 'images/location.png' %}", (error, image) => {
+            if (error) throw error;
+            map.addImage('green-marker', image);
+        });
+
+        const geojson = JSON.parse('{{ geojson|escapejs }}');
 
         map.addSource('places', {
             'type': 'geojson',
             'data': geojson
         });
 
-        // Add a layer showing the places.
+        // Add a layer showing the places for available rooms with custom marker
         map.addLayer({
-            'id': 'places',
-            'type': 'circle',
+            'id': 'available-places',
+            'type': 'symbol',
             'source': 'places',
+            'filter': ['>', ['get', 'available_count'], 0],
+            'layout': {
+                'icon-image': 'green-marker',
+                'icon-size': 0.05,  // Adjust the size here (0.1 = 10%)
+                'icon-allow-overlap': true
+            }
+        });
+
+        // Add labels to show the number of available rooms
+        map.addLayer({
+            'id': 'available-labels',
+            'type': 'symbol',
+            'source': 'places',
+            'filter': ['>', ['get', 'available_count'], 0],
+            'layout': {
+                'text-field': ['concat', ['get', 'available_count'], ' available'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-offset': [0, 1.5],
+                'text-anchor': 'top'
+            },
             'paint': {
-                'circle-color': '#4264fb',
-                'circle-radius': 6,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ffffff'
+                'text-color': '#000000'
             }
         });
 
         // Create a popup, but don't add it to the map yet.
         const popup = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false
+            closeButton: true,
+            closeOnClick: true
         });
 
-        map.on('mouseenter', 'places', (e) => {
+        map.on('click', 'available-places', (e) => {
             // Change the cursor style as a UI indicator.
             map.getCanvas().style.cursor = 'pointer';
 
             // Copy coordinates array.
             const coordinates = e.features[0].geometry.coordinates.slice();
             const description = e.features[0].properties.description;
+            const available_rooms = e.features[0].properties.available_rooms;
 
             // Ensure that if the map is zoomed out such that multiple
             // copies of the feature are visible, the popup appears
@@ -92,19 +135,48 @@
 
             // Populate the popup and set its coordinates
             // based on the feature found.
-            popup.setLngLat(coordinates).setHTML(description).addTo(map);
+            popup.setLngLat(coordinates).setHTML(`
+                ${description}<br>
+                <button class="btn btn-primary" onclick='showDetails(${JSON.stringify(available_rooms)}, "available")'>자세히 보기</button>
+            `).addTo(map);
         });
 
-        map.on('mouseleave', 'places', () => {
-            map.getCanvas().style.cursor = '';
-            popup.remove();
-        });
+        window.showDetails = function(rooms, status) {
+            rooms = typeof rooms === 'string' ? JSON.parse(rooms) : rooms;
+            let roomList = rooms.map(room => {
+                return `<li class="list-group-item" onclick="showRoomDetails('${room}')">${room}</li>`;
+            }).join('');
+            let roomDetails = `Rooms (${status}):<ul class="list-group">${roomList}</ul>`;
+            document.getElementById('modalBody').innerHTML = roomDetails;
+            $('#detailsModal').modal('show');
+        };
+
+        window.showRoomDetails = function(room) {
+            console.log('Requesting details for room:', room); // 로그 출력
+            fetch(`../get_room_details/?room_number=${room}`)  // 상대 경로로 수정
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received data:', data); // 로그 출력
+                    let lectureDetails = data.lectures.map(lecture => {
+                        return `
+                            <li class="list-group-item">
+                                <p><strong>Subject:</strong> ${lecture.subject}</p>
+                                <p><strong>Professor:</strong> ${lecture.professor}</p>
+                                <p><strong>Lecture Type:</strong> ${lecture.lecture_type}</p>
+                                <p><strong>Day:</strong> ${lecture.day}</p>
+                                <p><strong>Start Time:</strong> ${lecture.start_time}</p>
+                                <p><strong>End Time:</strong> ${lecture.end_time}</p>
+                            </li>
+                        `;
+                    }).join('');
+                    document.getElementById('modalBody').innerHTML = lectureDetails;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('modalBody').innerHTML = `<p>Error fetching room details</p>`;
+                });
+        };
     });
-
-    // Add zoom and rotation controls to the map.
-    map.addControl(new mapboxgl.NavigationControl());
-
-
 </script>
 </body>
 </html>

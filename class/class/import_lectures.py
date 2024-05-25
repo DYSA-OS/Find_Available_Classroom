@@ -77,7 +77,7 @@ def parse_times(time_str):
 
 def import_lectures():
     # 예시 데이터프레임 (여기서는 파일에서 읽어옵니다)
-    df3 = pd.read_csv('/findClass/df4.csv')
+    df3 = pd.read_csv('df4.csv')
 
     # 데이터베이스에 저장
     for index, row in df3.iterrows():

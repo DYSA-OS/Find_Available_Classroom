@@ -157,3 +157,12 @@ CORS_ALLOW_HEADERS = (
 
 #슬래시가 붙어서 error가 발생하는 상황을 방지
 APPEND_SLASH = False
+
+
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
