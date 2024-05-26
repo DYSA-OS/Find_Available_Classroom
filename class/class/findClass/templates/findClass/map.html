@@ -89,7 +89,7 @@
             'filter': ['>', ['get', 'available_count'], 0],
             'layout': {
                 'icon-image': 'green-marker',
-                'icon-size': 0.05,  // Adjust the size here (0.1 = 10%)
+                'icon-size': 0.05,  // Adjust the size here (0.05 = 5%)
                 'icon-allow-overlap': true
             }
         });
@@ -125,6 +125,7 @@
             const coordinates = e.features[0].geometry.coordinates.slice();
             const description = e.features[0].properties.description;
             const available_rooms = e.features[0].properties.available_rooms;
+            const occupied_rooms = e.features[0].properties.occupied_rooms;
 
             // Ensure that if the map is zoomed out such that multiple
             // copies of the feature are visible, the popup appears
@@ -137,44 +138,31 @@
             // based on the feature found.
             popup.setLngLat(coordinates).setHTML(`
                 ${description}<br>
-                <button class="btn btn-primary" onclick='showDetails(${JSON.stringify(available_rooms)}, "available")'>자세히 보기</button>
+                <button class="btn btn-danger" onclick='showDetails(${JSON.stringify(occupied_rooms || [])}, "occupied")'>Occupied Rooms Details</button>
+                <button class="btn btn-success" onclick='showDetails(${JSON.stringify(available_rooms || [])}, "available")'>Available Rooms</button>
             `).addTo(map);
         });
 
         window.showDetails = function(rooms, status) {
+            if (!rooms) {
+                console.error('Rooms array is undefined');
+                return;
+            }
+
             rooms = typeof rooms === 'string' ? JSON.parse(rooms) : rooms;
+
+            if (!Array.isArray(rooms)) {
+                console.error('Rooms is not an array:', rooms);
+                return;
+            }
+
             let roomList = rooms.map(room => {
-                return `<li class="list-group-item" onclick="showRoomDetails('${room}')">${room}</li>`;
+                return `<li class="list-group-item">${room}</li>`;
             }).join('');
+
             let roomDetails = `Rooms (${status}):<ul class="list-group">${roomList}</ul>`;
             document.getElementById('modalBody').innerHTML = roomDetails;
             $('#detailsModal').modal('show');
-        };
-
-        window.showRoomDetails = function(room) {
-            console.log('Requesting details for room:', room); // 로그 출력
-            fetch(`../get_room_details/?room_number=${room}`)  // 상대 경로로 수정
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Received data:', data); // 로그 출력
-                    let lectureDetails = data.lectures.map(lecture => {
-                        return `
-                            <li class="list-group-item">
-                                <p><strong>Subject:</strong> ${lecture.subject}</p>
-                                <p><strong>Professor:</strong> ${lecture.professor}</p>
-                                <p><strong>Lecture Type:</strong> ${lecture.lecture_type}</p>
-                                <p><strong>Day:</strong> ${lecture.day}</p>
-                                <p><strong>Start Time:</strong> ${lecture.start_time}</p>
-                                <p><strong>End Time:</strong> ${lecture.end_time}</p>
-                            </li>
-                        `;
-                    }).join('');
-                    document.getElementById('modalBody').innerHTML = lectureDetails;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('modalBody').innerHTML = `<p>Error fetching room details</p>`;
-                });
         };
     });
 </script>

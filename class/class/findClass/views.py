@@ -1,11 +1,7 @@
 import json
-import logging
-from django.http import JsonResponse
 from django.shortcuts import render
-from .models import Building, Room, Lecture, LectureSchedule
+from .models import Building, Room, LectureSchedule
 from datetime import datetime, time
-
-logger = logging.getLogger(__name__)
 
 def map_view(request):
     # 현재 시간을 임의로 수요일 오전 11시로 설정
@@ -13,21 +9,22 @@ def map_view(request):
     current_day = 'Wednesday'
     current_time = time(now.hour, now.minute)
 
-    # 사용 중인 강의실과 사용 가능한 강의실을 구분
-    occupied_rooms = []
-    available_rooms = []
+    # 강의실 정보를 저장할 리스트
+    occupied_rooms = set()
+    available_rooms = set()
 
+    # 모든 강의실을 가져와서 초기화
+    all_rooms = Room.objects.all()
+    for room in all_rooms:
+        available_rooms.add(room)
+
+    # 현재 시간에 해당하는 스케줄을 가져와서 처리
     schedules = LectureSchedule.objects.select_related('lecture__room__building').filter(day=current_day)
-
     for schedule in schedules:
         if schedule.start_time <= current_time < schedule.end_time:
-            occupied_rooms.append(schedule.lecture.room)
-        else:
-            available_rooms.append(schedule.lecture.room)
-
-    # 중복 제거
-    occupied_rooms = list(set(occupied_rooms))
-    available_rooms = list(set(available_rooms))
+            occupied_rooms.add(schedule.lecture.room)
+            if schedule.lecture.room in available_rooms:
+                available_rooms.remove(schedule.lecture.room)
 
     # 강의실 정보를 빌딩별로 그룹화하여 GeoJSON 형식으로 변환
     features = []
@@ -43,6 +40,7 @@ def map_view(request):
                 'name': building.name,
                 'occupied_count': len(building_rooms_occupied),
                 'available_count': len(building_rooms_available),
+                'occupied_rooms': building_rooms_occupied,
                 'available_rooms': building_rooms_available,
                 'description': f'<strong>{building.name}</strong><p><strong>Occupied Rooms:</strong> {len(building_rooms_occupied)}<br><strong>Available Rooms:</strong> {len(building_rooms_available)}</p>'
             },
@@ -57,35 +55,8 @@ def map_view(request):
         'features': features
     }
 
-    # Log the GeoJSON data
-    logger.info(json.dumps(geojson, indent=2))
-
     context = {
         'geojson': json.dumps(geojson)
     }
 
     return render(request, 'findClass/map.html', context)
-
-def get_room_details(request):
-    room_number = request.GET.get('room_number')
-    logger.info(f"Received request for room number: {room_number}")  # 로그 추가
-    try:
-        room = Room.objects.get(room_number=room_number)
-        lectures = room.lectures.all()
-        lecture_details = []
-        for lecture in lectures:
-            schedules = lecture.schedules.all()
-            for schedule in schedules:
-                lecture_details.append({
-                    'subject': lecture.subject,
-                    'professor': lecture.professor,
-                    'lecture_type': lecture.lecture_type,
-                    'day': schedule.day,
-                    'start_time': schedule.start_time.strftime('%H:%M'),
-                    'end_time': schedule.end_time.strftime('%H:%M')
-                })
-        logger.info(f"Lecture details for room {room_number}: {lecture_details}")  # 로그 추가
-        return JsonResponse({'lectures': lecture_details})
-    except Room.DoesNotExist:
-        logger.error(f"Room not found: {room_number}")  # 로그 추가
-        return JsonResponse({'error': 'Room not found'}, status=404)
