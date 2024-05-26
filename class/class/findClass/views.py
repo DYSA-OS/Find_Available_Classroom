@@ -1,12 +1,17 @@
 import json
+from django.http import JsonResponse
 from django.shortcuts import render
 from .models import Building, Room, LectureSchedule
 from datetime import datetime, time
 
 def map_view(request):
-    # 현재 시간을 임의로 수요일 오전 11시로 설정
-    now = datetime.now().replace(hour=11, minute=0, second=0, microsecond=0)
-    current_day = 'Wednesday'
+    datetime_str = request.GET.get('datetime')
+    if datetime_str:
+        now = datetime.fromisoformat(datetime_str)
+    else:
+        # 현재 시간을 임의로 수요일 오전 11시로 설정
+        now = datetime.now().replace(hour=11, minute=0, second=0, microsecond=0)
+    current_day = now.strftime('%A')
     current_time = time(now.hour, now.minute)
 
     # 강의실 정보를 저장할 리스트
@@ -54,6 +59,9 @@ def map_view(request):
         'type': 'FeatureCollection',
         'features': features
     }
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse(geojson)
 
     context = {
         'geojson': json.dumps(geojson)

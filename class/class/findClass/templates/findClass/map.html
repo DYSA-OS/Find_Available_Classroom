@@ -18,7 +18,7 @@
 
         #map {
             position: absolute;
-            top: 0;
+            top: 60px; /* 검색 폼을 위한 공간 확보 */
             bottom: 0;
             width: 100%;
         }
@@ -32,6 +32,16 @@
 </head>
 
 <body>
+<div class="container mt-4" style="position: absolute; top: 10px; width: 100%; z-index: 1;">
+    <form id="time-form" class="form-inline">
+        <div class="form-group mb-2">
+            <label for="datetime" class="sr-only">Select a date and time:</label>
+            <input type="datetime-local" class="form-control" id="datetime" name="datetime" required>
+        </div>
+        <button type="submit" class="btn btn-primary mb-2 ml-2">Search</button>
+    </form>
+</div>
+
 <div id="map"></div>
 
 <!-- Bootstrap Modal -->
@@ -55,6 +65,28 @@
 </div>
 
 <script>
+    document.getElementById('time-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const datetime = document.getElementById('datetime').value;
+        const url = `/class/map/?datetime=${encodeURIComponent(datetime)}`;
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update the map with new data
+                map.getSource('places').setData(data);
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
     mapboxgl.accessToken = 'pk.eyJ1Ijoic29sYWNvbGEiLCJhIjoiY2x3ajhkdTM5MDA1MTJpcDhscW9tNWdmOSJ9.0NoHkd4AGLDhM_2YKMC13w';
     const map = new mapboxgl.Map({
         container: 'map',
@@ -126,6 +158,7 @@
             const description = e.features[0].properties.description;
             const available_rooms = e.features[0].properties.available_rooms;
             const occupied_rooms = e.features[0].properties.occupied_rooms;
+            const building_name = e.features[0].properties.name;  // 빌딩 이름
 
             // Ensure that if the map is zoomed out such that multiple
             // copies of the feature are visible, the popup appears
@@ -138,12 +171,12 @@
             // based on the feature found.
             popup.setLngLat(coordinates).setHTML(`
                 ${description}<br>
-                <button class="btn btn-danger" onclick='showDetails(${JSON.stringify(occupied_rooms || [])}, "occupied")'>Occupied Rooms Details</button>
-                <button class="btn btn-success" onclick='showDetails(${JSON.stringify(available_rooms || [])}, "available")'>Available Rooms</button>
+                <button class="btn btn-danger" onclick='showDetails(${JSON.stringify(occupied_rooms || [])}, "occupied", "${building_name}")'>Occupied Rooms Details</button>
+                <button class="btn btn-success" onclick='showDetails(${JSON.stringify(available_rooms || [])}, "available", "${building_name}")'>Available Rooms</button>
             `).addTo(map);
         });
 
-        window.showDetails = function(rooms, status) {
+        window.showDetails = function(rooms, status, building_name) {
             if (!rooms) {
                 console.error('Rooms array is undefined');
                 return;
@@ -157,12 +190,40 @@
             }
 
             let roomList = rooms.map(room => {
-                return `<li class="list-group-item">${room}</li>`;
+                return status === 'occupied'
+                    ? `<li class="list-group-item" onclick="showRoomDetails('${room}', '${building_name}')">${room}</li>`
+                    : `<li class="list-group-item">${room}</li>`;
             }).join('');
 
             let roomDetails = `Rooms (${status}):<ul class="list-group">${roomList}</ul>`;
             document.getElementById('modalBody').innerHTML = roomDetails;
             $('#detailsModal').modal('show');
+        };
+
+        window.showRoomDetails = function(room, building_name) {
+            console.log('Requesting details for room:', room); // 로그 출력
+            fetch(`/class/get_room_details/?room_number=${room}&building_name=${building_name}`)  // URL을 올바르게 설정
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received data:', data); // 로그 출력
+                    let lectureDetails = data.lectures.map(lecture => {
+                        return `
+                            <li class="list-group-item">
+                                <p><strong>Subject:</strong> ${lecture.subject}</p>
+                                <p><strong>Professor:</strong> ${lecture.professor}</p>
+                                <p><strong>Lecture Type:</strong> ${lecture.lecture_type}</p>
+                                <p><strong>Day:</strong> ${lecture.day}</p>
+                                <p><strong>Start Time:</strong> ${lecture.start_time}</p>
+                                <p><strong>End Time:</strong> ${lecture.end_time}</p>
+                            </li>
+                        `;
+                    }).join('');
+                    document.getElementById('modalBody').innerHTML = lectureDetails;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('modalBody').innerHTML = `<p>Error fetching room details</p>`;
+                });
         };
     });
 </script>
