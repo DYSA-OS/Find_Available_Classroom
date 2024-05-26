@@ -1,8 +1,7 @@
 import json
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from .models import Building, Room, LectureSchedule
-from django.shortcuts import get_object_or_404
 from datetime import datetime, time
 
 def map_view(request):

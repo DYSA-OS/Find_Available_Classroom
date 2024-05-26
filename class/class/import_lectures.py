@@ -3,14 +3,12 @@ from datetime import time
 import os
 import django
 
-
 # Django settings 모듈 설정 (your_project_name은 실제 프로젝트 이름으로 변경)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'class.settings')
 django.setup()
 
 from findClass.models import Building, Room, Lecture, LectureSchedule
-
-
+from django.db.models import Min, Max
 
 # 요일과 시간 정보 매핑
 day_mapping = {
@@ -22,7 +20,6 @@ day_mapping = {
     '토': 'Saturday',
     '일': 'Sunday'
 }
-
 
 # 시간 블록을 파싱하여 시작 시간과 종료 시간을 반환하는 함수
 def parse_time_block(block):
@@ -60,7 +57,6 @@ def parse_time_block(block):
     }
     return time_blocks[block]
 
-
 # 주어진 시간 문자열을 파싱하여 요일, 시작 시간, 종료 시간 리스트를 반환하는 함수
 def parse_times(time_str):
     time_entries = time_str.split(',')
@@ -73,7 +69,6 @@ def parse_times(time_str):
         parsed_times.append((day_eng, start_time, end_time))
 
     return parsed_times
-
 
 def import_lectures():
     # 예시 데이터프레임 (여기서는 파일에서 읽어옵니다)
@@ -111,7 +106,29 @@ def import_lectures():
                 end_time=end_time
             )
 
+    # 스케줄 병합
+    lectures = Lecture.objects.all()
+    for lecture in lectures:
+        # 해당 강의의 모든 스케줄을 가져옴
+        schedules = LectureSchedule.objects.filter(lecture=lecture)
 
+        # 강의 스케줄을 요일별로 그룹화
+        grouped_schedules = schedules.values('day').annotate(
+            start_time=Min('start_time'),
+            end_time=Max('end_time')
+        )
+
+        # 기존 스케줄 삭제
+        # schedules.delete()
+
+        # 그룹화된 스케줄을 새로운 스케줄로 저장
+        for schedule in grouped_schedules:
+            LectureSchedule.objects.create(
+                lecture=lecture,
+                day=schedule['day'],
+                start_time=schedule['start_time'],
+                end_time=schedule['end_time']
+            )
 
 if __name__ == '__main__':
     import_lectures()
