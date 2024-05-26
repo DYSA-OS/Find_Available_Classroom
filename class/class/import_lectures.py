@@ -3,7 +3,7 @@ from datetime import time
 import os
 import django
 
-# Django settings 모듈 설정 (your_project_name은 실제 프로젝트 이름으로 변경)
+# Django settings 모듈 설정
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'class.settings')
 django.setup()
 
@@ -70,9 +70,12 @@ def parse_times(time_str):
 
     return parsed_times
 
-def import_lectures():
+def import_and_merge_lectures():
     # 예시 데이터프레임 (여기서는 파일에서 읽어옵니다)
     df3 = pd.read_csv('df4.csv')
+
+    # 데이터베이스에 저장할 임시 저장소
+    lecture_schedules = []
 
     # 데이터베이스에 저장
     for index, row in df3.iterrows():
@@ -99,36 +102,43 @@ def import_lectures():
         # LectureSchedule 인스턴스를 생성
         times = parse_times(row['time'])
         for day, start_time, end_time in times:
-            LectureSchedule.objects.create(
+            lecture_schedules.append(LectureSchedule(
                 lecture=lecture,
                 day=day,
                 start_time=start_time,
                 end_time=end_time
-            )
+            ))
 
     # 스케줄 병합
-    lectures = Lecture.objects.all()
-    for lecture in lectures:
+    for lecture in Lecture.objects.all():
         # 해당 강의의 모든 스케줄을 가져옴
-        schedules = LectureSchedule.objects.filter(lecture=lecture)
+        schedules = [s for s in lecture_schedules if s.lecture == lecture]
 
         # 강의 스케줄을 요일별로 그룹화
-        grouped_schedules = schedules.values('day').annotate(
-            start_time=Min('start_time'),
-            end_time=Max('end_time')
-        )
+        grouped_schedules = {}
+        for schedule in schedules:
+            if schedule.day not in grouped_schedules:
+                grouped_schedules[schedule.day] = [schedule]
+            else:
+                grouped_schedules[schedule.day].append(schedule)
+
+        # 병합된 스케줄로 대체
+        merged_schedules = []
+        for day, day_schedules in grouped_schedules.items():
+            start_time = min([s.start_time for s in day_schedules])
+            end_time = max([s.end_time for s in day_schedules])
+            merged_schedules.append(LectureSchedule(
+                lecture=lecture,
+                day=day,
+                start_time=start_time,
+                end_time=end_time
+            ))
 
         # 기존 스케줄 삭제
-        # schedules.delete()
+        LectureSchedule.objects.filter(lecture=lecture).delete()
 
-        # 그룹화된 스케줄을 새로운 스케줄로 저장
-        for schedule in grouped_schedules:
-            LectureSchedule.objects.create(
-                lecture=lecture,
-                day=schedule['day'],
-                start_time=schedule['start_time'],
-                end_time=schedule['end_time']
-            )
+        # 병합된 스케줄 저장
+        LectureSchedule.objects.bulk_create(merged_schedules)
 
 if __name__ == '__main__':
-    import_lectures()
+    import_and_merge_lectures()

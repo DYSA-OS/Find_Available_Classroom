@@ -18,7 +18,7 @@
 
         #map {
             position: absolute;
-            top: 160px; /* 검색 폼을 위한 공간 확보 */
+            top: 0;
             bottom: 0;
             width: 100%;
         }
@@ -57,7 +57,6 @@
     </form>
     <div id="room-status"></div>
 </div>
-
 <div id="map"></div>
 
 <!-- Bootstrap Modal -->
@@ -244,9 +243,11 @@
             }
 
             let roomList = rooms.map(room => {
-                return status === 'occupied'
-                    ? `<li class="list-group-item" onclick="showRoomDetails('${room}', '${building_name}')">${room}</li>`
-                    : `<li class="list-group-item">${room}</li>`;
+                if (status === "occupied") {
+                    return `<li class="list-group-item" onclick="showRoomDetails('${building_name}', '${room}')">${room}</li>`;
+                } else {
+                    return `<li class="list-group-item">${room}</li>`;
+                }
             }).join('');
 
             let roomDetails = `Rooms (${status}):<ul class="list-group">${roomList}</ul>`;
@@ -254,12 +255,11 @@
             $('#detailsModal').modal('show');
         };
 
-        window.showRoomDetails = function(room, building_name) {
-            console.log('Requesting details for room:', room); // 로그 출력
-            fetch(`/class/get_room_details/?room_number=${room}&building_name=${building_name}`)  // URL을 올바르게 설정
+        window.showRoomDetails = function(building_name, room) {
+            const datetime = document.getElementById('datetime').value;
+            fetch(`/class/get_room_details/?building_name=${building_name}&room_number=${room}&datetime=${datetime}`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Received data:', data); // 로그 출력
                     let lectureDetails = data.lectures.map(lecture => {
                         return `
                             <li class="list-group-item">
@@ -274,10 +274,7 @@
                     }).join('');
                     document.getElementById('modalBody').innerHTML = lectureDetails;
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('modalBody').innerHTML = `<p>Error fetching room details</p>`;
-                });
+                .catch(error => console.error('Error:', error));
         };
     });
 </script>

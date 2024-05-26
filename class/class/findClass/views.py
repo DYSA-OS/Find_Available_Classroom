@@ -70,6 +70,43 @@ def map_view(request):
 
     return render(request, 'findClass/map.html', context)
 
+def get_room_details(request):
+    datetime_str = request.GET.get('datetime')
+    building_name = request.GET.get('building_name')
+    room_number = request.GET.get('room_number')
+    if not datetime_str or not building_name or not room_number:
+        return JsonResponse({'error': 'Invalid parameters'}, status=400)
+
+    now = datetime.fromisoformat(datetime_str)
+    current_day = now.strftime('%A')
+    current_time = time(now.hour, now.minute)
+
+    building = get_object_or_404(Building, name=building_name)
+    room = get_object_or_404(Room, building=building, room_number=room_number)
+
+    schedules = LectureSchedule.objects.filter(
+        lecture__room=room,
+        day=current_day,
+        start_time__lte=current_time,
+        end_time__gt=current_time
+    )
+
+    if schedules.exists():
+        lectures = [
+            {
+                'subject': schedule.lecture.subject,
+                'professor': schedule.lecture.professor,
+                'lecture_type': schedule.lecture.lecture_type,
+                'day': schedule.day,
+                'start_time': schedule.start_time.strftime('%H:%M'),
+                'end_time': schedule.end_time.strftime('%H:%M')
+            }
+            for schedule in schedules
+        ]
+        return JsonResponse({'available': False, 'lectures': lectures})
+    else:
+        return JsonResponse({'available': True})
+
 def check_room(request):
     datetime_str = request.GET.get('datetime')
     building_name = request.GET.get('building_name')
