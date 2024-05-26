@@ -18,7 +18,7 @@
 
         #map {
             position: absolute;
-            top: 60px; /* 검색 폼을 위한 공간 확보 */
+            top: 160px; /* 검색 폼을 위한 공간 확보 */
             bottom: 0;
             width: 100%;
         }
@@ -33,13 +33,29 @@
 
 <body>
 <div class="container mt-4" style="position: absolute; top: 10px; width: 100%; z-index: 1;">
-    <form id="time-form" class="form-inline">
+    <form id="time-form" class="form-inline mb-2">
         <div class="form-group mb-2">
             <label for="datetime" class="sr-only">Select a date and time:</label>
             <input type="datetime-local" class="form-control" id="datetime" name="datetime" required>
         </div>
         <button type="submit" class="btn btn-primary mb-2 ml-2">Search</button>
     </form>
+    <form id="room-check-form" class="form-inline mb-2">
+        <div class="form-group mb-2">
+            <label for="building_name" class="sr-only">Select Building:</label>
+            <select class="form-control" id="building_name" name="building_name" required>
+                {% for building in buildings %}
+                <option value="{{ building.name }}">{{ building.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group mb-2">
+            <label for="room_number" class="sr-only">Enter Room Number:</label>
+            <input type="text" class="form-control" id="room_number" name="room_number" placeholder="Enter Room Number" required>
+        </div>
+        <button type="submit" class="btn btn-primary mb-2 ml-2">Check Room</button>
+    </form>
+    <div id="room-status"></div>
 </div>
 
 <div id="map"></div>
@@ -83,6 +99,44 @@
             .then(data => {
                 // Update the map with new data
                 map.getSource('places').setData(data);
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    document.getElementById('room-check-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const datetime = document.getElementById('datetime').value;
+        const buildingName = document.getElementById('building_name').value;
+        const roomNumber = document.getElementById('room_number').value;
+        const url = `/class/check_room/?datetime=${encodeURIComponent(datetime)}&building_name=${encodeURIComponent(buildingName)}&room_number=${encodeURIComponent(roomNumber)}`;
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                const roomStatusDiv = document.getElementById('room-status');
+                if (data.available) {
+                    roomStatusDiv.innerHTML = `현재 ${buildingName} 건물의 ${roomNumber} 강의실은 사용 가능합니다.`;
+                } else {
+                    const lectureDetails = data.lectures.map(lecture => {
+                        return `
+                            <li class="list-group-item">
+                                <p><strong>Subject:</strong> ${lecture.subject}</p>
+                                <p><strong>Professor:</strong> ${lecture.professor}</p>
+                                <p><strong>Lecture Type:</strong> ${lecture.lecture_type}</p>
+                                <p><strong>Day:</strong> ${lecture.day}</p>
+                                <p><strong>Start Time:</strong> ${lecture.start_time}</p>
+                                <p><strong>End Time:</strong> ${lecture.end_time}</p>
+                            </li>
+                        `;
+                    }).join('');
+                    roomStatusDiv.innerHTML = `
+                        <p>현재 ${buildingName} 건물의 ${roomNumber} 강의실에서 진행 중인 수업:</p>
+                        <ul class="list-group">${lectureDetails}</ul>
+                    `;
+                }
             })
             .catch(error => console.error('Error:', error));
     });
