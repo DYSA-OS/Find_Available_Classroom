@@ -28,28 +28,27 @@
             font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
         }
 
-        .container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
+        .close-button {
+            float: right;
+            font-size: 1.5rem;
+            font-weight: bold;
+            line-height: 1;
+            color: #000;
+            text-shadow: 0 1px 0 #fff;
+            opacity: .5;
         }
 
-        #createRoomBtn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1;
+        .close-button:hover {
+            color: #000;
+            text-decoration: none;
+            opacity: .75;
         }
     </style>
     {% load static %}
 </head>
 
 <body>
-<div class="container mt-4">
+<div class="container mt-4" style="position: absolute; top: 10px; width: 100%; z-index: 1;">
     <form id="time-form" class="form-inline mb-2">
         <div class="form-group mb-2">
             <label for="datetime" class="sr-only">Select a date and time:</label>
@@ -73,13 +72,16 @@
         </div>
         <button type="submit" class="btn btn-primary mb-2 ml-2">Check Room</button>
     </form>
-    <div id="room-status"></div>
+    <div id="room-status" class="alert alert-info" style="display: none;">
+        <button type="button" class="close close-button" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+        <div id="room-status-content"></div>
+    </div>
 </div>
-
 <div id="map"></div>
-
 <!-- 강의 생성 버튼 -->
-<button id="createRoomBtn" type="button" class="btn btn-primary" data-toggle="modal" data-target="#createRoomModal">
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createRoomModal" style="position: absolute; top: 10px; right: 10px; z-index: 1;">
     강의 생성
 </button>
 
@@ -103,7 +105,6 @@
         </div>
     </div>
 </div>
-
 <!-- 강의 생성 모달 -->
 <div class="modal fade" id="createRoomModal" tabindex="-1" role="dialog" aria-labelledby="createRoomModalLabel"
      aria-hidden="true">
@@ -144,6 +145,7 @@
                     <div class="form-group">
                         <label for="day">Day</label>
                         <select class="form-control" id="day" name="day" required>
+                            <option value="">Select Day</option>
                             <option value="Monday">Monday</option>
                             <option value="Tuesday">Tuesday</option>
                             <option value="Wednesday">Wednesday</option>
@@ -164,7 +166,7 @@
                     <div class="form-group">
                         <label for="day2">Day 2</label>
                         <select class="form-control" id="day2" name="day2">
-                            <option value="">-- Select Day --</option>
+                            <option value="">Select Day</option>
                             <option value="Monday">Monday</option>
                             <option value="Tuesday">Tuesday</option>
                             <option value="Wednesday">Wednesday</option>
@@ -213,6 +215,10 @@
             .catch(error => console.error('Error:', error));
     });
 
+    document.querySelector('.close-button').addEventListener('click', function() {
+        document.getElementById('room-status').style.display = 'none';
+    });
+
     document.getElementById('time-form').addEventListener('submit', function (e) {
         e.preventDefault();
         const datetime = document.getElementById('datetime').value;
@@ -249,8 +255,9 @@
             .then(response => response.json())
             .then(data => {
                 const roomStatusDiv = document.getElementById('room-status');
+                const roomStatusContentDiv = document.getElementById('room-status-content');
                 if (data.available) {
-                    roomStatusDiv.innerHTML = `현재 ${buildingName} 건물의 ${roomNumber} 강의실은 사용 가능합니다.`;
+                    roomStatusContentDiv.innerHTML = `현재 ${buildingName} 건물의 ${roomNumber} 강의실은 사용 가능합니다.`;
                 } else {
                     const lectureDetails = data.lectures.map(lecture => {
                         return `
@@ -264,11 +271,12 @@
                             </li>
                         `;
                     }).join('');
-                    roomStatusDiv.innerHTML = `
+                    roomStatusContentDiv.innerHTML = `
                         <p>현재 ${buildingName} 건물의 ${roomNumber} 강의실에서 진행 중인 수업:</p>
                         <ul class="list-group">${lectureDetails}</ul>
                     `;
                 }
+                roomStatusDiv.style.display = 'block';
             })
             .catch(error => console.error('Error:', error));
     });
@@ -411,5 +419,6 @@
         };
     });
 </script>
+
 </body>
 </html>
