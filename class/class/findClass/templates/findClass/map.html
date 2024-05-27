@@ -27,12 +27,29 @@
             max-width: 450px;
             font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
         }
+
+        .container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #createRoomBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1;
+        }
     </style>
     {% load static %}
 </head>
 
 <body>
-<div class="container mt-4" style="position: absolute; top: 10px; width: 100%; z-index: 1;">
+<div class="container mt-4">
     <form id="time-form" class="form-inline mb-2">
         <div class="form-group mb-2">
             <label for="datetime" class="sr-only">Select a date and time:</label>
@@ -51,36 +68,152 @@
         </div>
         <div class="form-group mb-2">
             <label for="room_number" class="sr-only">Enter Room Number:</label>
-            <input type="text" class="form-control" id="room_number" name="room_number" placeholder="Enter Room Number" required>
+            <input type="text" class="form-control" id="room_number" name="room_number" placeholder="Enter Room Number"
+                   required>
         </div>
         <button type="submit" class="btn btn-primary mb-2 ml-2">Check Room</button>
     </form>
     <div id="room-status"></div>
 </div>
+
 <div id="map"></div>
 
+<!-- 강의 생성 버튼 -->
+<button id="createRoomBtn" type="button" class="btn btn-primary" data-toggle="modal" data-target="#createRoomModal">
+    강의 생성
+</button>
+
 <!-- Bootstrap Modal -->
-<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="detailsModalLabel">Room Details</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="modalBody">
-        <!-- Room details will be injected here -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-      </div>
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalLabel">Room Details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Room details will be injected here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
-  </div>
+</div>
+
+<!-- 강의 생성 모달 -->
+<div class="modal fade" id="createRoomModal" tabindex="-1" role="dialog" aria-labelledby="createRoomModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createRoomModalLabel">강의 생성</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="createRoomForm">
+                    <div class="form-group">
+                        <label for="subject">Subject</label>
+                        <input type="text" class="form-control" id="subject" name="subject" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="professor">Professor</label>
+                        <input type="text" class="form-control" id="professor" name="professor" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lecture_type">Lecture Type</label>
+                        <input type="text" class="form-control" id="lecture_type" name="lecture_type" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="building">Building</label>
+                        <select class="form-control" id="building" name="building" required>
+                            {% for building in buildings %}
+                            <option value="{{ building.id }}">{{ building.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="room_number">Room Number</label>
+                        <input type="text" class="form-control" id="room_number" name="room_number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="day">Day</label>
+                        <select class="form-control" id="day" name="day" required>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="start_time1">Start Time</label>
+                        <input type="time" class="form-control" id="start_time1" name="start_time1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_time1">End Time</label>
+                        <input type="time" class="form-control" id="end_time1" name="end_time1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="day2">Day 2</label>
+                        <select class="form-control" id="day2" name="day2">
+                            <option value="">-- Select Day --</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="start_time2">Start Time 2</label>
+                        <input type="time" class="form-control" id="start_time2" name="start_time2">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_time2">End Time 2</label>
+                        <input type="time" class="form-control" id="end_time2" name="end_time2">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Lecture</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-    document.getElementById('time-form').addEventListener('submit', function(e) {
+    document.getElementById('createRoomForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        fetch('/class/create_room/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Lecture created successfully!');
+                    $('#createRoomModal').modal('hide');
+                    // Optionally, you can refresh the map or perform other actions
+                } else {
+                    alert('Error: ' + JSON.stringify(data.errors));
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    document.getElementById('time-form').addEventListener('submit', function (e) {
         e.preventDefault();
         const datetime = document.getElementById('datetime').value;
         const url = `/class/map/?datetime=${encodeURIComponent(datetime)}`;
@@ -102,7 +235,7 @@
             .catch(error => console.error('Error:', error));
     });
 
-    document.getElementById('room-check-form').addEventListener('submit', function(e) {
+    document.getElementById('room-check-form').addEventListener('submit', function (e) {
         e.preventDefault();
         const datetime = document.getElementById('datetime').value;
         const buildingName = document.getElementById('building_name').value;
@@ -229,7 +362,7 @@
             `).addTo(map);
         });
 
-        window.showDetails = function(rooms, status, building_name) {
+        window.showDetails = function (rooms, status, building_name) {
             if (!rooms) {
                 console.error('Rooms array is undefined');
                 return;
@@ -255,7 +388,7 @@
             $('#detailsModal').modal('show');
         };
 
-        window.showRoomDetails = function(building_name, room) {
+        window.showRoomDetails = function (building_name, room) {
             const datetime = document.getElementById('datetime').value;
             fetch(`/class/get_room_details/?building_name=${building_name}&room_number=${room}&datetime=${datetime}`)
                 .then(response => response.json())

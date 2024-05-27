@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from .models import Building, Room, LectureSchedule
 from datetime import datetime, time
+from .forms import LectureForm, LectureScheduleForm  # 폼을 추가
 
 def map_view(request):
     datetime_str = request.GET.get('datetime')
@@ -143,3 +144,42 @@ def check_room(request):
         return JsonResponse({'available': False, 'lectures': lectures})
     else:
         return JsonResponse({'available': True})
+
+
+def create_room(request):
+    if request.method == 'POST':
+        form = LectureForm(request.POST)
+        schedule_form = LectureScheduleForm(request.POST)
+        if form.is_valid() and schedule_form.is_valid():
+            building = form.cleaned_data['building']
+            room_number = schedule_form.cleaned_data['room_number']
+            room, created = Room.objects.get_or_create(building=building, room_number=room_number)
+            lecture = form.save(commit=False)
+            lecture.room = room
+            lecture.save()
+
+            schedule = LectureSchedule(
+                lecture=lecture,
+                day=schedule_form.cleaned_data['day'],
+                start_time=schedule_form.cleaned_data['start_time1'],
+                end_time=schedule_form.cleaned_data['end_time1']
+            )
+            schedule.save()
+
+            day2 = schedule_form.cleaned_data.get('day2')
+            start_time2 = schedule_form.cleaned_data.get('start_time2')
+            end_time2 = schedule_form.cleaned_data.get('end_time2')
+
+            if day2 and start_time2 and end_time2:
+                LectureSchedule.objects.create(
+                    lecture=lecture,
+                    day=day2,
+                    start_time=start_time2,
+                    end_time=end_time2
+                )
+
+            return JsonResponse({'success': True, 'message': 'Lecture created successfully.'})
+        else:
+            errors = {**form.errors, **schedule_form.errors}
+            return JsonResponse({'success': False, 'errors': errors})
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
