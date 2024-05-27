@@ -81,7 +81,8 @@
 </div>
 <div id="map"></div>
 <!-- 강의 생성 버튼 -->
-<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createRoomModal" style="position: absolute; top: 10px; right: 10px; z-index: 1;">
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createRoomModal"
+        style="position: absolute; top: 10px; right: 10px; z-index: 1;">
     강의 생성
 </button>
 
@@ -191,6 +192,93 @@
     </div>
 </div>
 
+<!-- 강의 수정 모달 -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" role="dialog" aria-labelledby="editRoomModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editRoomModalLabel">강의 수정</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editRoomForm">
+                    <input type="hidden" id="edit_lecture_id" name="lecture_id">
+                    <div class="form-group">
+                        <label for="edit_subject">Subject</label>
+                        <input type="text" class="form-control" id="edit_subject" name="subject" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_professor">Professor</label>
+                        <input type="text" class="form-control" id="edit_professor" name="professor" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_lecture_type">Lecture Type</label>
+                        <input type="text" class="form-control" id="edit_lecture_type" name="lecture_type" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_building">Building</label>
+                        <select class="form-control" id="edit_building" name="building" required>
+                            {% for building in buildings %}
+                            <option value="{{ building.id }}">{{ building.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_room_number">Room Number</label>
+                        <input type="text" class="form-control" id="edit_room_number" name="room_number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_day">Day</label>
+                        <select class="form-control" id="edit_day" name="day" required>
+                            <option value="">Select Day</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_start_time1">Start Time</label>
+                        <input type="time" class="form-control" id="edit_start_time1" name="start_time1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_end_time1">End Time</label>
+                        <input type="time" class="form-control" id="edit_end_time1" name="end_time1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_day2">Day 2</label>
+                        <select class="form-control" id="edit_day2" name="day2">
+                            <option value="">Select Day</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_start_time2">Start Time 2</label>
+                        <input type="time" class="form-control" id="edit_start_time2" name="start_time2">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_end_time2">End Time 2</label>
+                        <input type="time" class="form-control" id="edit_end_time2" name="end_time2">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Edit Lecture</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.getElementById('createRoomForm').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -215,7 +303,30 @@
             .catch(error => console.error('Error:', error));
     });
 
-    document.querySelector('.close-button').addEventListener('click', function() {
+    document.getElementById('editRoomForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        fetch('/class/edit_room/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Lecture edited successfully!');
+                    $('#editRoomModal').modal('hide');
+                    // Optionally, you can refresh the map or perform other actions
+                } else {
+                    alert('Error: ' + JSON.stringify(data.errors));
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    document.querySelector('.close-button').addEventListener('click', function () {
         document.getElementById('room-status').style.display = 'none';
     });
 
@@ -268,6 +379,8 @@
                                 <p><strong>Day:</strong> ${lecture.day}</p>
                                 <p><strong>Start Time:</strong> ${lecture.start_time}</p>
                                 <p><strong>End Time:</strong> ${lecture.end_time}</p>
+                                <button class="btn btn-warning" onclick="editLecture(${lecture.id})">Edit</button>
+                                <button class="btn btn-danger" onclick="deleteLecture(${lecture.id})">Delete</button>
                             </li>
                         `;
                     }).join('');
@@ -280,6 +393,72 @@
             })
             .catch(error => console.error('Error:', error));
     });
+
+    function editLecture(lectureId) {
+        fetch(`/class/get_lecture_details/?id=${lectureId}`)
+            .then(response => response.json())
+            .then(data => {
+                const form = document.getElementById('editRoomForm');
+                form['lecture_id'].value = data.id;
+                form['subject'].value = data.subject;
+                form['professor'].value = data.professor;
+                form['lecture_type'].value = data.lecture_type;
+                form['building'].value = data.building_id;
+                form['room_number'].value = data.room_number;
+                form['day'].value = data.day;
+                form['start_time1'].value = data.start_time1;
+                form['end_time1'].value = data.end_time1;
+                form['day2'].value = data.day2 || '';
+                form['start_time2'].value = data.start_time2 || '';
+                form['end_time2'].value = data.end_time2 || '';
+                $('#editRoomModal').modal('show');
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    function deleteLecture(lectureId) {
+        console.log('Lecture ID:', lectureId); // 디버깅을 위해 추가
+        if (!confirm('Are you sure you want to delete this lecture?')) {
+            return;
+        }
+
+        fetch(`/class/delete_lecture/`, {
+            method: 'POST',
+            body: JSON.stringify({id: lectureId}),
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Lecture deleted successfully!');
+                    $('#detailsModal').modal('hide');  // Close the modal
+                    // Optionally, you can refresh the map or perform other actions
+                } else {
+                    alert('Error: ' + JSON.stringify(data.errors));
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
 
     mapboxgl.accessToken = 'pk.eyJ1Ijoic29sYWNvbGEiLCJhIjoiY2x3ajhkdTM5MDA1MTJpcDhscW9tNWdmOSJ9.0NoHkd4AGLDhM_2YKMC13w';
     const map = new mapboxgl.Map({
@@ -410,6 +589,8 @@
                                 <p><strong>Day:</strong> ${lecture.day}</p>
                                 <p><strong>Start Time:</strong> ${lecture.start_time}</p>
                                 <p><strong>End Time:</strong> ${lecture.end_time}</p>
+                                <button class="btn btn-warning" onclick="editLecture(${lecture.id})">Edit</button>
+                                <button class="btn btn-danger" onclick="deleteLecture(${lecture.id})">Delete</button>
                             </li>
                         `;
                     }).join('');

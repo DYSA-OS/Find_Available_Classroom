@@ -1,7 +1,9 @@
 import json
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
-from .models import Building, Room, LectureSchedule
+from django.views.decorators.csrf import csrf_exempt
+
+from .models import Building, Room, LectureSchedule, Lecture
 from datetime import datetime, time
 from .forms import LectureForm, LectureScheduleForm  # 폼을 추가
 
@@ -95,6 +97,7 @@ def get_room_details(request):
     if schedules.exists():
         lectures = [
             {
+                'id': schedule.lecture.id,  # 여기서 id를 포함시킵니다
                 'subject': schedule.lecture.subject,
                 'professor': schedule.lecture.professor,
                 'lecture_type': schedule.lecture.lecture_type,
@@ -183,3 +186,77 @@ def create_room(request):
             errors = {**form.errors, **schedule_form.errors}
             return JsonResponse({'success': False, 'errors': errors})
     return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+def get_lecture_details(request):
+    lecture_id = request.GET.get('id')
+    lecture = get_object_or_404(Lecture, id=lecture_id)
+    schedules = lecture.schedules.all()
+    response_data = {
+        'id': lecture.id,
+        'subject': lecture.subject,
+        'professor': lecture.professor,
+        'lecture_type': lecture.lecture_type,
+        'building_id': lecture.room.building.id,
+        'room_number': lecture.room.room_number,
+        'day': schedules[0].day,
+        'start_time1': schedules[0].start_time,
+        'end_time1': schedules[0].end_time,
+    }
+    if len(schedules) > 1:
+        response_data.update({
+            'day2': schedules[1].day,
+            'start_time2': schedules[1].start_time,
+            'end_time2': schedules[1].end_time,
+        })
+    return JsonResponse(response_data)
+
+
+def edit_room(request):
+    if request.method == 'POST':
+        lecture_id = request.POST.get('lecture_id')
+        lecture = get_object_or_404(Lecture, id=lecture_id)
+
+        lecture_form = LectureForm(request.POST, instance=lecture)
+        schedule_form = LectureScheduleForm(request.POST)
+
+        if lecture_form.is_valid() and schedule_form.is_valid():
+            lecture_form.save()
+
+            room_number = schedule_form.cleaned_data['room_number']
+            day = schedule_form.cleaned_data['day']
+            start_time1 = schedule_form.cleaned_data['start_time1']
+            end_time1 = schedule_form.cleaned_data['end_time1']
+
+            LectureSchedule.objects.filter(lecture=lecture).delete()
+            LectureSchedule.objects.create(lecture=lecture, day=day, start_time=start_time1, end_time=end_time1)
+
+            day2 = schedule_form.cleaned_data.get('day2')
+            start_time2 = schedule_form.cleaned_data.get('start_time2')
+            end_time2 = schedule_form.cleaned_data.get('end_time2')
+
+            if day2 and start_time2 and end_time2:
+                LectureSchedule.objects.create(lecture=lecture, day=day2, start_time=start_time2, end_time=end_time2)
+
+            return JsonResponse({'success': True})
+        else:
+            return JsonResponse({'success': False, 'errors': {**lecture_form.errors, **schedule_form.errors}})
+
+    return JsonResponse({'success': False, 'errors': 'Invalid request'})
+
+
+@csrf_exempt  # CSRF 검사 비활성화
+def delete_lecture(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            lecture_id = data.get('id')
+            if not lecture_id:
+                return JsonResponse({'success': False, 'error': 'No lecture ID provided'}, status=400)
+
+            lecture = get_object_or_404(Lecture, id=lecture_id)
+            lecture.delete()
+            return JsonResponse({'success': True})
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
