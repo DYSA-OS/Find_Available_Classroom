@@ -1,0 +1,13 @@
+
+digraph G {
+    node [shape=record, fontsize=12, fontname="Arial"];
+
+    Building [label="{ Building | id (PK) | name | latitude | longitude }"];
+    Room [label="{ Room | id (PK) | building_id (FK) | room_number }"];
+    Lecture [label="{ Lecture | id (PK) | subject | professor | lecture_type | room_id (FK) }"];
+    LectureSchedule [label="{ LectureSchedule | id (PK) | lecture_id (FK) | day | start_time | end_time }"];
+
+    Building -> Room [label="1:N"];
+    Room -> Lecture [label="1:N"];
+    Lecture -> LectureSchedule [label="1:N"];
+}
